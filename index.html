@@ -1,1 +1,13 @@
-Hello World
+<input id=“upload” type=“file” name=“upload” />
+<button id=“btnUpload” onclick=“fileUpload()”> Upload File</button>
+Then you need to write the JavaScript function that triggers the file upload.
+<script>
+async function fileUpload() {
+    let data= new FormData();          
+    data.append(“file”, upload.files[0]);
+    await fetch(‘/upload.php, {
+      method: “POST”,
+      body: data
+    });   
+}
+</script>
