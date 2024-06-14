@@ -1,3 +1,11 @@
+body* { 
+  font-size: 13px;
+}
+
+.logo {
+    font-size: inherit;
+}
+
 .node circle {
   fill: #fff;
   stroke: gray;
@@ -25,6 +33,10 @@
     line-height: 1.33;
 }
 
-
-
+#textbox {
+  margin: -50px 70px 50px 50px;
+  background: #2f293d;
+  border: 1px solid #2f293d;
+  font-weight: bold;
+}
 

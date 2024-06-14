@@ -1,136 +1,421 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <head>
-<link rel="stylesheet" type="text/css" href="css/style.css">
 <link href="css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<link rel="stylesheet" type="text/css" href="css/zoom.css">
 <link rel="stylesheet" href="dependencies/font-awesome.min.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" integrity="sha384-gfdkjb5BdAXd+lj+gudLWI+BXq4IuLW5IT+brZEZsLFm++aCMlF1V92rMkPaX4PP" crossorigin="anonymous">
+
 <!-- Load the javascript libraries -->    
 <script src="dependencies/jquery.min.js"></script>
 <script src="dependencies/bootstrap.min.js"></script>	
 <script src="dependencies/d3.v4.min.js"></script>
+<script src="dependencies/tinycolor.js"></script>
 <script src="utils.js"></script>
 <script src="div_container_utils.js"></script>
 <script src="display_tree.js"></script>
+<script src="display_cn_tree.js"></script>
+<script src="dgidb_query_response.js"></script>
 
 </head>
 
 <body style="margin-top: 5px; margin-left: 5px; margin-right: 5px;">
 
+<div style="display: flex">
+  <div style="background-color: #b4a7d6; flex-grow: 1; height: 60px"></div>
+  <div style="width: 300px; height: 60px; background: radial-gradient(#ffffff 0%, #b4a7d6); text-align: center; ">
+    <p id="logo" style="font-family:calibri; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
+  </div>
+</div>
+<br/>
+<div width="100%" style="font-size: 13px">
+  Choose tree cohort: <select id="drop-down-cohort"></select>
+</div>
+<br/>
+
+<div>
+  <a class="zoom"><i class="fas fa-search-plus"></i></a>&nbsp;
+  <a class="zoom-out"><i class="fas fa-search-minus"></i></a>&nbsp;
+  <a class="zoom-init"><i class="fas fa-expand-arrows-alt"></i></a>&nbsp;
+  <a class="shuffle_trees" id="shuffle_icon"><i class="fa fa-random"></i></a>&nbsp;
+  <br/>
+
+  <div id="tree_cohort" style="border: 1px solid gray; border-radius: 5px; 
+  float:left; width:75%; min-width:700px; padding-top: 3px; padding-right: 3px; 
+  padding-left: 3px;"></div>
+
+  <div id="tree_info" style="border: 1px solid gray; border-radius: 5px; font-size: 13px; 
+  width:24%; padding: 3px; float:right; position: sticky;  
+  overflow-x:scroll; overflow-y:scroll; height:100%;"></div>
+</div>
+
 <script>
-loadSampleMap("trees_aml.json")
 
-function display_metadata(document, map) {
+// Global variables.
+var expand_metadata = true
+var shuffle_trees_on_click = true
+var selectable_genes = {}
+var sample_metadata_colors = {}
+var table_color_codes = null
 
-  var table = document.createElement("table")
-  table.style.cssFloat = "left"
-  table.style.margin = "20px"
+// DGIdb data
+var gene_to_drug_map = parseGeneDrugInteractions(gene_drug_interaction)
 
-  first_row = true
+// Action functions for zoom.
+var zoom = 1;             
+$('.zoom').on('click', function(){
+  if(zoom < 1){
+    zoom += 0.1;
+  }
+  document.getElementById("tree_cohort").style.zoom = zoom
+});
 
-  for (var row in map){
-    if(first_row) {
-      first_row = false
-      var tr = document.createElement('TR');
-      table.appendChild(tr);
-      table.style.tableLayout="fixed"
-      var td = document.createElement('TD');
-      tr.appendChild(td)
-      td.appendChild(document.createTextNode(""))
-      for (var col in map[row]){
-        var td = document.createElement('TD');
-        td.appendChild(document.createTextNode(col));
-        td.style.transform = "rotate(-90deg)"
-        td.height='80'
-        td.width='20'
-        tr.appendChild(td)
+$('.zoom-init').on('click', function(){
+  zoom = 1;
+  document.getElementById("tree_cohort").style.zoom = zoom
+});
+
+$('.zoom-out').on('click', function(){
+  zoom -= 0.1;
+  document.getElementById("tree_cohort").style.zoom = zoom
+});
+
+$('.shuffle_trees').on('click', function(){
+  if (shuffle_trees_on_click) {
+    shuffle_trees_on_click = false
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fa fa-sitemap">'
+  }
+  else {
+    shuffle_trees_on_click = true
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fa fa-random"></i>'
+  }
+  display_all_trees()
+})
+
+//loadSampleMap("trees_aml_new.json")
+//loadSampleMap("trees_aml_etienne_new.json")
+//loadSampleMap("trees_tupro_melanoma.json")
+//loadSampleMap("trees_tupro_ovarian_new.json")
+
+datasets = {"AML mutation trees (Morita et al. 2020)": "trees_aml_new.json", 
+"AML joint CN-mutation (Sollier et al. 2022)": "trees_aml_etienne_new.json",
+"Ovarian CN trees (Tumor Profiler Consortium)": "trees_tupro_ovarian_new.json",
+"Melanoma CN trees (Tumor Profiler Consortium)": "trees_tupro_melanoma.json"}
+var drop_down_cohorts = document.getElementById("drop-down-cohort");
+drop_down_list = Object.keys(datasets)
+for (idx = 0; idx < drop_down_list.length; idx++) {
+  drop_down_cohorts.options[drop_down_cohorts.options.length] = new Option(drop_down_list[idx], idx);
+}
+$('#drop-down-cohort').change(function(){
+  display_all_trees()
+});
+
+function addGeneToGeneList(html_element, gene_list, category){
+  optgroup = document.createElement('optgroup')
+  optgroup.label = category
+  for(var gene of gene_list){
+        option = document.createElement('option');
+        option.textContent = gene;
+        optgroup.appendChild(option);
+    }
+    html_element.appendChild(optgroup);
+}
+
+
+function changeTargetGeneOrDrug(dropdown_id, tree_info_div_id) {
+  var drop_down_gene = document.getElementById(dropdown_id);
+  var target_gene = drop_down_gene.options[drop_down_gene.selectedIndex].text;
+  display_cn_tree(tree_info_div_id, tree_object, target_gene, "")  
+
+  html_string = populateGeneDrugInfoHTML(target_gene, gene_to_drug_map, "tree_info") 
+  document.getElementById(tree_info_div_id).innerHTML += html_string
+} 
+
+function showClusterInfo(event) {
+  cluster_metadata = {}
+  samples = event.currentTarget.samples
+  for (let j = 0; j < samples.length; j++) {
+    sample = samples[j]
+    cluster_metadata[sample] = sample_metadata_colors[sample]
+  }
+ 
+  document = event.currentTarget.document 
+  table = display_metadata(document, cluster_metadata)
+  tree_info_div_id = event.currentTarget.tree_info_div_id
+  var tree_info_div = document.getElementById(tree_info_div_id)
+  tree_info_div.innerHTML = "<strong style='background-color:#e6e2d3; display:block;'>&nbsp;Cluster metadata<br/></strong>"
+  tree_info_div.appendChild(table_color_codes)
+  tree_info_div.appendChild(document.createElement("br"))
+  tree_info_div.appendChild(document.createElement("br"))
+  tree_info_div.appendChild(table)
+}
+
+function populateTreeInfo(event) {
+  tree_info_div_id = event.currentTarget.tree_info_div_id
+  sample_name = event.currentTarget.sample_name
+  metadata = event.currentTarget.metadata
+  tree_object = event.currentTarget.tree_object
+
+  var node_hierarchy = d3.hierarchy(tree_object)
+  var treemap = d3.tree()
+  node_list = treemap(node_hierarchy).descendants()
+
+  selectable_genes = {}
+  for (let i=0; i<node_list.length; i++) {
+    node = node_list[i]
+    if (node.data.gene_events){
+      gene_map = objectToMap(node.data.gene_events)
+      gene_map.forEach((events, gene) => {
+        events = objectToMap(events)
+        events.forEach((value, event) => {
+          label = event
+          if(event == "CNV") {
+            if (value > 0) {
+              label = "amplified"
+            }
+            else {
+              label = "deleted"
+            }
+          }
+          if(!(label in selectable_genes)) {
+            selectable_genes[label] = new Set()
+          }
+          selectable_genes[label].add(gene)
+        })
+      })
+    }
+  }
+
+  var tree_info_div = document.getElementById(tree_info_div_id)
+  tree_info_div.innerHTML = 'Selected sample: <b>' + sample_name + '</b></br><br/>'
+
+  // Hidden metadata.
+  var hidden_metadata_div = document.createElement("div")
+  hidden_metadata_div.setAttribute("id", "hidden_metadata")
+  hidden_metadata_div.innerHTML += "<div id='hidden_metadata'><strong style='background-color:#e6e2d3; display:block;'>&nbsp;Clinical data <a class='expand-metadata'><i class='fa fa-caret-down fa-lg' style='color:#8A877E'></i></a></strong></div>"
+  hidden_metadata_div.style.display = 'block'
+  tree_info_div.appendChild(hidden_metadata_div)
+
+  // Displayed metadata.
+  var display_metadata_div = document.createElement("div")
+  display_metadata_div.setAttribute("id", "display_metadata")
+  display_metadata_div.innerHTML += "<strong style='background-color:#e6e2d3; display:block;'>&nbsp;Clinical data <a class='expand-metadata'><i class='fa fa-caret-up fa-lg' style='color:#8A877E'></i></a></strong>"
+  for (const [key, value] of Object.entries(metadata)) {
+    display_metadata_div.innerHTML += '<i><b>' + key + '</b>: ' + value + '</i></br>'
+  }
+  display_metadata_div.style.display = 'none'
+  tree_info_div.appendChild(display_metadata_div)
+
+  tree_info_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;Interactive tree<br/></strong>"
+  tree_info_div.innerHTML += '<b>Select target gene</b>: <select id="gene_selection"' + ' onchange="changeTargetGeneOrDrug(\'gene_selection\', \'tree_info\')"></select><br/><br/>'
+
+  // Hidden gebe-drug interactions.
+  var hidden_gdi_div = document.createElement("div")
+  hidden_gdi_div.setAttribute("id", "hidden_gdi")
+  hidden_gdi_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;Top DGIdb drugs associated with the target gene <a class='expand-metadata'><i class='fa fa-caret-up fa-lg' style='color:#8A877E'></i></a></strong><br/><br/>"
+
+  // Displayed gene-drug interactions.
+  var display_gdi_div = document.createElement("div")
+  display_gdi_div.setAttribute("id", "display_gdi")
+  display_gdi_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;Top DGIdb drugs associated with the target gene <a class='expand-metadata'><i class='fa fa-caret-down fa-lg' style='color:#8A877E'></i></a></strong><br/><br/>"
+  tree_info_div.appendChild(display_gdi_div)
+
+  tree_info_div.innerHTML += '<b>Selected drug: XXX</b><br/>'
+  tree_info_div.innerHTML += '<div id="tooltip" style="position:fixed; opacity:0; background-color:white; border:solid; border-width:2px; border-radius:5px; padding:5px; z-index:1; top: -5px; right: 105%;"></div>'
+
+  gene_dropdown = document.getElementById("gene_selection")
+  keys = Object.keys(selectable_genes).sort()
+  for (var i=0; i<keys.length; i++) {
+    event = keys[i]
+    array = selectable_genes[event]
+    sorted_genes = Array.from(array).sort()
+    addGeneToGeneList(gene_dropdown, sorted_genes, event)
+  }
+
+  $('.expand-metadata').on('click', function(){
+    if (expand_metadata) {
+      document.getElementById("hidden_metadata").style.display = 'none'
+      document.getElementById("display_metadata").style.display = 'block'
+      expand_metadata = false
+    }
+    else {
+      document.getElementById("hidden_metadata").style.display = 'block'
+      document.getElementById("display_metadata").style.display = 'none'
+      expand_metadata = true      
+    }
+  });     
+
+  display_cn_tree("tree_info", tree_object, Object.values(selectable_genes)[0].values().next().value, "")
+}
+
+function populateGeneDrugInfoHTML(target_gene, gene_to_drug_map, inner_div_id) {
+  var drugs = gene_to_drug_map[target_gene]
+
+  html_string = ""
+  if(drugs.length == 0) {
+      html_string += "<b>No drugs associated with target gene.</b><br/><br/>"
+  } else {
+      drugs.sort(function(a, b){return b["drug_score"] - a["drug_score"]});
+  
+      var data_target_id = "drugs_" + inner_div_id
+      //html_string += "<b>Top DGIdb drugs associated with target gene:</b> <button class='btn' style='background-color:transparent' type='button' data-toggle='collapse' data-target=#" + data_target_id + "><i class='fa fa-angle-double-down' style='font-size:24px'></i></button>"
+      //html_string += "<div id=" + data_target_id + " class='collapse'>"
+      html_string += "<font size=2><i>(<font color=tomato>inhibitors are red</font>, <font color=lightsteelblue>activators are blue</font>)</i></font><br/>"
+      for(i=0; i<drugs.length; i++) {
+          drug = drugs[i]
+          if (drug.drug_score < 3) {
+            continue
+          }
+          color = "black"
+          if(isInhibitor(drug.interaction_types)) {
+            color = "tomato"  
+          }
+          else if (isActivator(drug.interaction_types)) {
+            color = "lightsteelblue"  
+          }
+          html_string += "-  <font color=" + color + ">" +drug.drug_name + "</font>: " + drug.interaction_types + " (" + drug.drug_score + " citations)<br/>"
+      }
+      //html_string += "</div>"
+  }
+  return html_string
+}
+
+function display_all_trees() {
+  e = document.getElementById("drop-down-cohort")
+  var cohort_name = e.options[e.selectedIndex].text
+  loadSampleMap(datasets[cohort_name])
+
+  sleep(2000).then(() => {
+
+    div_tree_cohort = document.getElementById("tree_cohort")
+    div_tree_cohort.innerHTML = ""
+
+    div_tree_info = document.getElementById("tree_info")
+    div_tree_info.innerHTML = ""
+    div_tree_cohort_top_offset = div_tree_cohort.getBoundingClientRect().top 
+    div_tree_info.style.top = div_tree_cohort_top_offset + "px"
+
+    sample_map = eval("sample_map")
+
+    // TODO: check the tree type: mutation/CN
+ 
+    var body = document.getElementsByTagName("BODY")[0];
+    var cohort_div = document.getElementById("tree_cohort")
+
+    background_colors = ["#F9F6EE", "#FFF8DC", "#FDEDEC", "#CEFCBA", "#F4EEA9", "#F5DAD2", "#FFD8B4", 
+        "#FFCACC", "#EEE3CB", "#E3F4F4", "#EBDEF0", "#F2F4F4", "#D6EAF8"]
+    node_colors = ["#FF0000", "#800000", "#E67E22", "#808000", "#00FF00", "#008000", "#00FFFF", "#008080",
+        "#0000FF", "#000080", "#FF00FF", "#800080", "#CCCCFF"]
+
+    trees_json = sample_map["trees"] 
+    clusters = []
+    if ("clusters" in sample_map && Object.keys(sample_map["clusters"]) != 0 && shuffle_trees_on_click) {
+      clusters = sample_map["clusters"]
+    }
+    else {
+      sample_names = Object.keys(trees_json).sort() // TODO: shuffle trees 
+      for (let i = 0; i < sample_names.length; i++) {    
+        clusters.push([sample_names[i]])
       }
     }
 
-    var tr = document.createElement('TR');
-    table.appendChild(tr);
-    var td = document.createElement('TD');
-    tr.appendChild(td)
-    td.appendChild(document.createTextNode(row));
-    for (var col in metadata[row]){
-      var td = document.createElement('TD');
-      td.width='10'
-      td.style.backgroundColor=map[row][col]
-      td.appendChild(document.createTextNode(""));
-      tr.appendChild(td)
-    }
-  }
-  document.body.appendChild(table);
-}
+    sample_metadata_map = {}
+    for (let i = 0; i < clusters.length; i++) {
+      if (clusters[i].length > 1) {
+        cluster_color = background_colors[i % background_colors.length]
+      }
+      else {
+        cluster_color = "#FFFFFF"
+      }
+      border_color = tinycolor(cluster_color).darken(5).desaturate(20).toRgbString()
+      text_color = tinycolor(cluster_color).darken(20).desaturate(40).toHexString()
 
-function display_color_codes(document, map) {
+      // Assign colors corresponding to matching_labels.
+      matching_nodes_color_map = {} // matching_label:color
+      color_index = 0
+      for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_data = trees_json[sample_name]
+        json_tree = sample_data["tree"]
+        var node_hierarchy = d3.hierarchy(json_tree)
+        var treemap = d3.tree()
+        node_list = treemap(node_hierarchy).descendants()
+        matching_labels = new Set()
+        for (let i=0; i<node_list.length; i++) {
+          node = node_list[i]
+          if (node.data.node_id && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
+            matching_labels.add(node.data.matching_label)
+          }
+        }
+        for(let matching_label of matching_labels) {
+          if (!(matching_label in matching_nodes_color_map)) {
+            matching_nodes_color_map[matching_label] = "white"
+          }
+          else {
+            if (matching_nodes_color_map[matching_label] == "white") {
+              matching_nodes_color_map[matching_label] = node_colors[color_index % node_colors.length]
+              color_index += 1
+            }
+          }
+        }
+      }
 
-  var table = document.createElement("table")
-  table.style.cssFloat = "left"
-  table.style.margin = "20px"
+      // Populate div to display the tree cohort.
+      for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_data = trees_json[sample_name]
+        json_tree = sample_data["tree"]
+        if ("metadata" in sample_data) {
+          sample_metadata = sample_data["metadata"]
+          sample_metadata_map[sample_name] = sample_metadata
+        }
 
-  max_num_columns = 0
-  for (var row in map){
-    max_num_columns = Math.max(max_num_columns, (map[row].size))
-  }
+        timestamp = Date.now()
 
-  for (var row in map){
-    var tr = document.createElement('TR');
-    table.appendChild(tr);
-    var td = document.createElement('TD');
-    tr.appendChild(td)
-    td.appendChild(document.createTextNode(row));
-    td.style.fontSize = "10px"
+        // Create div structure: <div><cluster_div><tree_div></div>
 
-    for (var col in map[row]){
-      var td = document.createElement('TD');
-      td.style.backgroundColor=map[row][col]
-      td.style.textAlign="center"
-      td.style.fontSize = "8px"
-      td.style.color="white"
-      td.appendChild(document.createTextNode(col));
-      tr.appendChild(td)
-    }
-  }
-  document.body.appendChild(table);
-  table.style.cssFloat = "none"
-}
+        var outer_tree_div = document.createElement("div")
+        outer_tree_div.setAttribute("style", "display: inline-block; background-color:" + cluster_color)
+        if (j == 0 && clusters[i].length > 1) {
+          var click_cluster_div = document.createElement("div")
+          click_cluster_div.className = "cluster_div"
+          click_cluster_div.setAttribute("style", "cursor: default;")
+          click_cluster_div.innerHTML = '&nbsp;<i class="fa fa-desktop fa-sm" style="color:' + text_color + 
+              '"></i> <i><font color="' + text_color  + '"> &thinsp; show cluster metadata </i>'
+          click_cluster_div.addEventListener('click', showClusterInfo)
+          click_cluster_div.samples = clusters[i]
+          click_cluster_div.document = document
+          click_cluster_div.tree_info_div_id = "tree_info"
+          outer_tree_div.appendChild(click_cluster_div)
+        }
+        else {
+          outer_tree_div.innerHTML = "<br/>"
+        }
 
-sleep(2000).then(() => {
+        var tree_div_id = sample_name + "_" + timestamp + "_tree"
+        var tree_div = document.createElement("div")
+        tree_div.setAttribute("style", "border: 1px solid " + border_color + "; border-radius: 5px; display: inline-block; background-color:" + cluster_color)
+        tree_div.setAttribute("id", tree_div_id)
 
-  sample_map = eval("sample_map")
-  tree = "event_tree"
+        tree_div.addEventListener('click', populateTreeInfo) 
+        tree_div.tree_info_div_id = "tree_info"
+        tree_div.sample_name = sample_name
+        tree_div.metadata = sample_metadata
+        tree_div.tree_object = json_tree
 
-  for (var sample in sample_map){
-    console.log(sample)
-    sample_data = objectToMap(sample_map[sample])
-
-    trees_json = Object.fromEntries(objectToMap(sample_data.get("trees")))
-    /*
-    metadata = Object.fromEntries(objectToMap(sample_data.get("metadata")))
-    metadata_color_codes = Object.fromEntries(objectToMap(sample_data.get("metadata_color_codes")))
-    display_metadata(document, metadata)
-    var elem = document.createElement("br");
-    document.body.appendChild(elem);
-    display_color_codes(document, metadata_color_codes)
-    */
-
-    trees_json = Object.fromEntries(objectToMap(sample_data.get("trees")))
-    console.log(trees_json)
-    for (var idx in trees_json) {
-      display_tree(trees_json[idx]["sample_name"], trees_json[idx], [])
+        cohort_div.appendChild(outer_tree_div)
+        outer_tree_div.appendChild(tree_div)
+        display_tree(tree_div_id, sample_name, json_tree, matching_nodes_color_map)
+      }
     }
 
-    /*var elem = document.createElement("br");
-    document.body.appendChild(elem);
-    var elem = document.createElement("hr");
-    elem.setAttribute("width", "100%");
-    elem.setAttribute("size", "20px");
-    elem.setAttribute("color", "black");
-    document.body.appendChild(elem);
-    var elem = document.createElement("br");
-    document.body.appendChild(elem);*/
-  }
-})
+    [sample_metadata_colors, metadat_color_map] = get_metadata_color_map(sample_metadata_map)
+    table_color_codes = display_color_codes(document, metadat_color_map)
+  })
+}
+
+display_all_trees()
 
 </script>
 
