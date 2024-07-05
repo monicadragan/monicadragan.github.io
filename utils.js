@@ -27,6 +27,44 @@ function deepCopy(oldValue) {
   return newValue = JSON.parse(strValue)
 }
 
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+function linspace(startValue, stopValue, cardinality) {
+  var arr = [];
+  var step = (stopValue - startValue) / (cardinality - 1);
+  for (var i = 0; i < cardinality; i++) {
+    arr.push(startValue + (step * i));
+  }
+  return arr;
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+//////////////////////////
+//// UTILS D3.JS TREE ////
+//////////////////////////
+function get_matching_labels(sample_data){
+  matching_labels = new Set()
+  json_tree = sample_data["tree"]
+  var node_hierarchy = d3.hierarchy(json_tree)
+  var treemap = d3.tree()
+  node_list = treemap(node_hierarchy).descendants()
+  for (let i=0; i<node_list.length; i++) {
+    node = node_list[i]
+    if (node.data.node_id && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
+      matching_labels.add(node.data.matching_label)
+    }
+  }
+  return matching_labels
+}
+
 ////////////////////////
 //// UTILS METADATA ////
 ////////////////////////
@@ -154,13 +192,12 @@ function display_color_codes(document, map) {
 
 // Returns a map with gene key and drug info value.
 function parseGeneDrugInteractions(gene_drug_interaction){
-  gene_to_drug_map = {}
+  gene_drug_map = {}
 
   for(i=0; i<gene_drug_interaction["matchedTerms"].length; i++) {
     item = gene_drug_interaction["matchedTerms"][i]
     gene = item["searchTerm"] 
-    gene_to_drug_map[gene] = []
-     
+    gene_drug_map[gene] = [] 
     for(j=0; j<item["interactions"].length; j++)  {
       drug = item["interactions"][j]
       drug_info = {}
@@ -168,18 +205,17 @@ function parseGeneDrugInteractions(gene_drug_interaction){
       drug_info["interaction_types"] = drug.interactionTypes
       drug_info["drug_sources"] = drug.sources
       drug_info["drug_score"] = drug.score
-      gene_to_drug_map[gene].push(drug_info)  
+      gene_drug_map[gene].push(drug_info)  
     }
   }
-
-  return gene_to_drug_map
+  return gene_drug_map
 }
 
-function getDrugToGeneMap(gene_list, gene_to_drug_map) {
+function getDrugToGeneMap(gene_list, gene_drug_map) {
   var drug_gene_map = {}
   for (var gene of gene_list){
-    if(gene in gene_to_drug_map) {
-      for (var drug of gene_to_drug_map[gene]){
+    if(gene in gene_drug_map) {
+      for (var drug of gene_drug_map[gene]){
         drug_name = drug.drug_name.substring(0,30)
         if (drug_name in drug_gene_map) {
           drug_gene_map[drug_name].push(gene)
@@ -191,6 +227,34 @@ function getDrugToGeneMap(gene_list, gene_to_drug_map) {
     }
   } 
   return drug_gene_map
+}
+
+function custom_compare (drug_1, drug_2) {
+  return drug_1.cnt - drug_2.cnt
+}
+
+function findDrugsAffectingGeneList(tumor_gene_list, drug_gene_map, tree_object) {
+  var drug_cnt_list = []
+  for(drug in drug_gene_map) {
+    drug_gene_list = drug_gene_map[drug]
+    var cells_affecte_by_drug = 0
+    for (var tumor_gene of tumor_gene_list) {
+      if (drug_gene_list.includes(tumor_gene)) {
+        cells_affecte_by_drug += getCellCountForGene(tree_object, tumor_gene)
+      }
+    }
+    if (cells_affecte_by_drug > 0) {
+      drug_cnt_list.push({"drug": drug, "cnt": cells_affecte_by_drug})
+    }
+  }
+  drug_cnt_list.sort(custom_compare).reverse()
+
+  drug_list = []
+  for(item of drug_cnt_list) { 
+    drug_list.push(item.drug)
+  }
+
+  return drug_list
 }
 
 function isInhibitor(interaction_types) {
@@ -222,11 +286,6 @@ function isAntibody(interaction_types) {
   }
   return false
 }
-
-
-
-
-
 
 /// NOT USED
 
