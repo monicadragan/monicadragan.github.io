@@ -10,13 +10,17 @@
 <!-- Load the javascript libraries -->    
 <script src="dependencies/jquery.min.js"></script>
 <script src="dependencies/bootstrap.min.js"></script>	
-<script src="dependencies/d3.v4.min.js"></script>
+<script src="dependencies/d3.v7.min.js"></script>
+<script src="dependencies/d3-selection-multi.v1.js"></script>
 <script src="dependencies/tinycolor.js"></script>
 <script src="utils.js"></script>
 <script src="div_container_utils.js"></script>
 <script src="display_cn_tree.js"></script>
+<script src="display_tree_matching.js"></script>
 <script src="dgidb_query_response.js"></script>
 <script src="aux_data/aml_morita/heatmap_values.js"></script>
+
+<!-- <script src="/Users/mdragan/Downloads/tupro_cohort_analysis/my-tupro/visualize_trees/tupro_melanoma_clone_trees.json"></script> -->
 
 </head>
 
@@ -33,6 +37,8 @@
   Choose tree cohort: <select id="drop-down-cohort"></select>
 </div>
 <br/>
+
+<div id="tree-matches" style="border: 2px solid lightgray; width=500px"></div>
 
 <div width=100% style="display:inline">
   <div style="border: 0px solid lightgray; border-radius: 8px; padding:5px; background-color:white; float:left; disply:inline;">
@@ -66,6 +72,26 @@
     width:24%; padding: 7px; float:right; position: fixed; left: calc(75% + 2px);
     overflow-x:scroll; overflow-y:scroll; height:100%;"></div>
 </div>
+
+<script>
+
+matching_file = "/Users/mdragan/Downloads/tupro_cohort_analysis/my-tupro/tree_embeddings/out_1720868483_tupro-melanoma_0.8/baseline_tree_matching/matching_tree_pairs.json"
+loadFileVariable(matching_file)
+
+sleep(2000).then(() => {
+  graphs = eval("matching_trees")
+
+  var graph_map = objectToMap(graphs)
+    graph_map.forEach((data, id) => {  
+      samples = id.split(/_/)
+      console.log("before", data["links"][0])
+      async_display_tree_matching("tree-matches", data)
+      console.log("after", data["links"][0])
+      async_display_tree_matching("tree-matches", data) //, invert_source = true)
+    })
+})
+
+</script>
 
 <script>
 
@@ -805,7 +831,7 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
 function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
   e = document.getElementById("drop-down-cohort")
   var cohort_name = e.options[e.selectedIndex].text
-  loadSampleMap(datasets[cohort_name])
+  loadFileVariable(datasets[cohort_name])
 
   sleep(2000).then(() => {
 
