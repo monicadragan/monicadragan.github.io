@@ -5,25 +5,24 @@ function getYShift(depth) {
 
 function getXShift(dx, group) {
   if (group == 2) {
-    return dx * 4 + 250
+    return dx * 4 + 170
   }
   return dx * 4 + 30
 }
 
-async function async_display_tree_matching(div_id, data, invert_sources = false) {
-  display_tree_matching(div_id, data, invert_sources)
+async function async_display_tree_matching(div_id, data) {
+  display_tree_matching(div_id, data)
   await sleep(2000)
 }
 
-function display_tree_matching(div_id, data, invert_sources) {
-  var colors = d3.schemePaired
+function display_tree_matching(div_id, data) {
+  var colors = ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', '#fdbf6f', '#ff7f00', '#cab2d6', '#6a3d9a', '#ffff99', '#b15928'] //d3.schemePaired
   var color_index = 0
   //var colors = d3.scaleOrdinal(d3.schemeCategory10);
   var node_colors = {}
 
   sample_1 = data["sample_1"]
   sample_2 = data["sample_2"]
-  console.log(sample_1, sample_2)
   tree_type = data["tree_type"]
 
   nodes = data["nodes"]
@@ -33,27 +32,27 @@ function display_tree_matching(div_id, data, invert_sources) {
   percentage = data["percentage"]
   num_significant_matches = data["num_significant_matches"]
   
-  var margin = { top: 0, right: 20, bottom: 10, left: 20 };
-  var width = 400 - margin.left - margin.right;
-  var height = 520 - margin.top - margin.bottom;
+  var margin = { top: 0, right: 0, bottom: 0, left: 0};
+  var width = 500 //- margin.left - margin.right;
+  var height = Math.min(400, 2*screen.height/3) - margin.top - margin.bottom;
  
   pair_id = sample_1 + "-" + sample_2 + "-" + tree_type  
+
   var svg = d3.select("div#" + div_id)
     .append("svg")
     .attr("id", pair_id)
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
-    .attr("style", "border:1px solid black")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
 
   svg.append("text")
     .attr("id", "rectangleText")
     .attr("class", "visible")
-    .attr("x", 10)
-    .attr("y", 10)
+    .attr("x", 20)
+    .attr("y", 30)
     .attr("width",10)
     .style("font-size", "13px")
-    .text(sample_1 + " " + sample_2);
+    .text(sample_1 + " - " + sample_2);
 
   for (var i = 0; i < nodes.length; i++){
     node = nodes[i]
@@ -65,22 +64,6 @@ function display_tree_matching(div_id, data, invert_sources) {
     nodes[i].y = getYShift(node.depth)
   }
 
-  var simulation = d3.forceSimulation()
-    .force("link", d3.forceLink().id(function (d) {return d.id;}).strength(0))
-
-  // Define the arrows.  
-  /*svg.append('defs').append('marker')
-    .attrs({
-      'viewBox':'3 -3 10 10',
-      'refX':18,
-      'refY':0,
-      'orient':'auto',
-      'markerWidth':13,
-      'markerHeight':13,
-      'xoverflow':'visible'})
-    .append('svg:path')
-    .attr('d', 'M 0,-5 L 10 ,0 L 0,5')*/
-
   // Fetch the links between nodes.
   var link = svg.selectAll(".link")
     .data(links)
@@ -88,11 +71,10 @@ function display_tree_matching(div_id, data, invert_sources) {
     .append("path")
     .attr("class", "link")
     .style("stroke", function(d){
-      //console.log(d.source)
       if(d.similarity > 0) {
         link_color = colors[color_index]
-        node_colors[d.source.id] = link_color
-        node_colors[d.target.id] = link_color
+        node_colors[d.source] = link_color
+        node_colors[d.target] = link_color
         color_index += 1
         return link_color
       }
@@ -162,6 +144,9 @@ function display_tree_matching(div_id, data, invert_sources) {
       return ""
     })
 
+  var simulation = d3.forceSimulation()
+    .force("link", d3.forceLink().id(function (d) {return d.id;}).strength(0))
+
   // add the nodes to the simulation
   simulation
     .nodes(nodes)
@@ -175,16 +160,16 @@ function display_tree_matching(div_id, data, invert_sources) {
     }) 
 
   // add the links to the simulation
-  simulation.force("link")
-    .links(links)
-
+  simulation
+    .force("link").links(links)
+  
 }
 
 // links are drawn as curved paths between nodes,
 // through the intermediate nodes
 function curvedPath(d) {
-  source_dx = getXShift(d.source.dx, 2)
-  target_dx = getXShift(d.target.dx, 1)
+  source_dx = getXShift(d.source.dx, 1)
+  target_dx = getXShift(d.target.dx, 2)
   source_dy = getYShift(d.source.depth)
   target_dy = getYShift(d.target.depth)
 

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+    <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v3/3.15/themes/css/cartodb.css" />
+    <!-- include cartodb.js library -->
+    <script src="http://libs.cartocdn.com/cartodb.js/v3/3.15/cartodb.js"></script>
+    <style>
+      html, body, #map {
+        height: 100%;
+        padding: 0;
+        margin: 0;
+      }
+      #in{
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding-right: 10px;
+        padding-left: 10px;
+        z-index: 9000;
+        background-color: #69D2E7;
+        cursor:pointer;
+
+      }
+      #out{
+        position: absolute;
+        top: 70px;
+        left: 20px;
+        padding-right: 5px;
+        padding-left: 10px;
+        z-index: 9000;
+        background-color: #A7DBDB;
+        cursor:pointer;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id = 'in'><p>Click to Zoom in</p></div>
+    <div id = 'out'><p>Click to Zoom out</p></div> 
+
+
+    <script type="text/javascript">
+      var layer;
+      var vector = [];
+      var legend;
+      
+      function main() {
+
+        var map = L.map('map', { 
+          zoomControl: false,
+          center: [41.390205, 2.154007],
+          zoom: 12,
+          minZoom:9,
+          maxZoom:13
+        });
+
+        // zoom in function
+        $('#in').click(function(){
+          map.setZoom(map.getZoom() + 1)
+        });
+
+
+        // zoom out function
+        $('#out').click(function(){
+          map.setZoom(map.getZoom() - 1)
+        });
+
+        // add basemap
+       L.tileLayer('http://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png', {attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://cartodb.com/attributions">CartoDB</a>'}).addTo(map);
+       // add CartoDB layer
+        cartodb.createLayer(map, {
+          user_name: 'oboix',
+          type: 'cartodb',
+          sublayers: [{
+            sql: "select * FROM barris_barcelona_test;",
+            
+            cartocss: "#barris_barcelona_test{ polygon-fill: #29ABA4;polygon-opacity: 1;line-color: #FFF;line-width: 0.5;line-opacity: 1; }",
+          }]
+        }).addTo(map)
+        
+    }
+
+      window.onload = main;
+      
+    </script>
+  </body>
+</html>

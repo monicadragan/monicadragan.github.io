@@ -14,6 +14,7 @@
 <script src="dependencies/d3-selection-multi.v1.js"></script>
 <script src="dependencies/tinycolor.js"></script>
 <script src="utils.js"></script>
+<script src="div_container_utils.js"></script>
 <script src="display_cn_tree.js"></script>
 <script src="display_tree_matching.js"></script>
 <script src="dgidb_query_response.js"></script>
@@ -640,8 +641,8 @@ function populateTreeInfo(event) {
   // Hidden kNN.
   var hidden_knn_div = document.createElement("div")
   hidden_knn_div.setAttribute("id", "hidden_knn")
-  hidden_knn_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;K-nearest tree neighbors &nbsp;" +
-      /*"<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
+  hidden_knn_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;K-nearest tree neighbors" +
+      /*"&nbsp;<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
         "<span class='info-tooltiptext'>Tooltip text</span>" +
       "</div>&nbsp;*/
       "<a class='expand-knn'>" + 
@@ -652,8 +653,7 @@ function populateTreeInfo(event) {
   var display_knn_div = document.createElement("div")
   display_knn_div.setAttribute("id", "display_knn")
   display_knn_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;K-nearest tree neighbors " +
-      //"<i class='fa fa-question-circle' style='color:gray'></i>&nbsp;&nbsp;" +
-      "<a class='hide-knn'>" +
+      "<i class='fa fa-question-circle' style='color:gray'></i>&nbsp;&nbsp;<a class='hide-knn'>" +
       "<i class='fa fa-caret-up fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
   display_knn_div.style.display = 'none'
   var knn_info_div = document.createElement("div")
@@ -807,18 +807,18 @@ function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
   var cohort_name = e.options[e.selectedIndex].text
   loadFileVariable(datasets[cohort_name])
 
-  sleep(1000).then(() => {
+  sleep(2000).then(() => {
 
     sample_map = eval("sample_map")
-    loadFileVariable(sample_map["heatmap_values"])
-    loadFileVariable(sample_map["tree_matches"])
-
-  sleep(1000).then(() => {
-
+/*    tree_matches_file = eval(sample_map["tree_matches"]) 
+    loadFileVariable(tree_matches_file)
     matching_trees = eval("matching_trees")
+    console.log(matching_trees)
     var matching_trees_map = objectToMap(matching_trees)
-
-    matrix = eval("matrix")
+*/
+//heatmap_values
+//matching_file = "/Users/mdragan/Downloads/tupro_cohort_analysis/my-tupro/tree_embeddings/out_1720952351_aml-mutation-trees_0.8/baseline_tree_matching/matching_tree_pairs.json"
+//loadFileVariable(matching_file)
 
     // Actions on tree_cohort div refresh.
     div_tree_cohort = document.getElementById(tree_cohort_div_id)
@@ -836,14 +836,8 @@ function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
     background_colors = ["#F9F6EE", "#F8EAEC", "#EBF5F7", "#FFF8DC", 
                          "#E8DFD0", "#F0D7DF", "#C3E2E8", "#FCE9C5", "#F5F2F6", "#E1E3DA",
                          "#FFD3DD", "#E0D9E4", "#DEFDEF", "#D0F6CF", "#F3FEFC", "#FFD7BA"]
-    //["#F9F6EE", "#FFF8DC", "#FDEDEC", "#CEFCBA", "#F4EEA9", "#F5DAD2", "#FFD8B4", 
-    //    "#FFCACC", "#EEE3CB", "#E3F4F4", "#EBDEF0", "#F2F4F4", "#D6EAF8"]
     node_colors = ["#A87676", "#E493B3", "#B784B7", "#8E7AB5", "#F6995C", "#EEC759", "#E9B384", 
                    "#88AB8E", "#4f6f52", "#65647C", "#8B7E74", "#FF8Dc7", "#A7D2CB", "#554994"]
-    //['#a1c9f4', '#ffb482', '#8de5a1', '#ff9f9b', '#d0bbff', '#debb9b', '#fab0e4', '#cfcfcf', '#fffea3', '#b9f2f0'] // seaborn pastel
-    //["#FFB8B1", "#FFDAC1", "#97C1A9", "#55CBCD", "#9AB7D3", "#DFCCF1", "#1b85b8", "#5a5255", "#559e83", "#ae5a41", "#c3cb71"]
-    // ["#800000", "#E67E22", "#808000", "#00FF00", "#008000", "#00FFFF", "#008080",
-    //    "#000080", "#FF00FF", "#800080", "#CCCCFF"]
 
     trees_json = sample_map["trees"] 
     clusters = []
@@ -1003,7 +997,7 @@ function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
         tree_div.sample_name = sample_name
         tree_div.metadata = sample_metadata
         tree_div.tree_object = json_tree
-        tree_div.matching_trees_map = matching_trees_map
+        //tree_div.matching_trees_map = matching_trees_map
 
         div_tree_cohort.appendChild(outer_tree_div)
         outer_tree_div.appendChild(tree_div)
@@ -1013,7 +1007,6 @@ function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
 
     [sample_metadata_colors, metadat_color_map] = get_metadata_color_map(sample_metadata_map)
     table_color_codes = display_color_codes(document, metadat_color_map)
-  })
   })
 }
 

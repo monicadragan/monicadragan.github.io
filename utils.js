@@ -4,7 +4,7 @@ const sleep = (milliseconds) => {
 }
 
 // Read sample_map
-function loadSampleMap(filename){
+function loadFileVariable(filename){
   var script = document.createElement("script");
   script.src = filename;
   document.head.appendChild(script);
@@ -50,6 +50,10 @@ function capitalizeFirstLetter(string) {
 //////////////////////////
 //// UTILS D3.JS TREE ////
 //////////////////////////
+function circle_ray(percentage) {
+  return Math.max(8, Math.min(30, percentage * 60))
+}
+
 function get_matching_labels(sample_data){
   matching_labels = new Set()
   json_tree = sample_data["tree"]
@@ -58,7 +62,7 @@ function get_matching_labels(sample_data){
   node_list = treemap(node_hierarchy).descendants()
   for (let i=0; i<node_list.length; i++) {
     node = node_list[i]
-    if (node.data.node_id && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
+    if (node.parent != null && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
       matching_labels.add(node.data.matching_label)
     }
   }

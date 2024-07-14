@@ -1,9 +1,5 @@
 ////////// Help functions ///////////
 
-function circle_ray(percentage) {
-  return Math.max(8, Math.min(30, percentage * 60))
-} 
-
 function get_cn_event_for_gene(node, target_gene) {
   if (target_gene in node.data.gene_events) {
     if ("CNV" in node.data.gene_events[target_gene]) {
@@ -51,10 +47,10 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
     }
   }
 
-  var elem = document.getElementById("tooltip");
+  /*var elem = document.getElementById("tooltip");
   if(elem) {
     elem.parentNode.removeChild(elem);
-  }
+  }*/
 
   // node info box
   var tooltip = d3.select("div#" + div_id)
@@ -139,14 +135,14 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
     })
     .attr("orient", "auto")
     .style("stroke-width", function(d) {
-      if (d.data.node_id != 0 && d.data.gene_events) {
+      if (d.parent != null && d.data.gene_events) {
         if (get_cn_event_for_gene(d, target_gene)) {
           return 4;
         }
       }
     })
     .style("stroke", function(d) {
-      if (d.data.node_id != 0 && d.data.gene_events) {
+      if (d.parent != null && d.data.gene_events) {
         cn_event = get_cn_event_for_gene(d, target_gene);
         return get_color_for_cn_event(cn_event);
       }
@@ -180,7 +176,7 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
       );
     })
     .text(function(d) {
-      if (d.data.node_id != 0 && d.data.gene_events) {
+      if (d.parent != null && d.data.gene_events) {
         cn_event = get_cn_event_for_gene(d, target_gene);
         if (cn_event) {
           string = "";
@@ -283,10 +279,13 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
   node
     .append("circle")
     .attr("r", function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent == null) {
+        return 3
+      }
+      else if (d.data.size_percent) {
         return circle_ray(d.data.size_percent);
       }
-      return 3;
+      return 10;
     })
     .style("fill", function(d) {
       if (d.data.is_neutral) {
@@ -294,7 +293,7 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
       }
 
       if(show_details) {
-        if (d.data.node_id != 0 && d.data.gene_events) {
+        if (d.parent != null && d.data.gene_events) {
           return get_node_color(d, target_gene);
         }
       }
@@ -307,12 +306,12 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
 
   node.append("text")
     .attr("x", function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         return circle_ray(d.data.size_percent) + 10
       }
     })
     .attr("y", function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         return circle_ray(d.data.size_percent) 
       }
     })
@@ -325,7 +324,7 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
     .attr("text-anchor", "middle")
     .attr("fill", "gray")
     .text(function(d) {
-      if (d.data.node_id != 0 && d.data.gene_events && !d.data.is_neutral) {
+      if (d.parent != null && d.data.gene_events && !d.data.is_neutral) {
       //  if (target_gene in d.data.gene_events) {
         if (get_node_color(d, target_gene) == violet_color) {
           return "*"
@@ -338,33 +337,33 @@ function display_cn_tree(div_id, tree_label, treeData, target_gene, target_drug,
   if (show_details) {
     node.append("rect")
     .attr("x", function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         ray = circle_ray(d.data.size_percent)
         rect_size = ray 
         return -ray/2 - (rect_size - ray) / 2
       }
     })
     .attr("y", function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         ray = circle_ray(d.data.size_percent)
         rect_size = ray 
         return -ray/2 - (rect_size - ray) / 2
       }
     })
     .attr('width', function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         ray = circle_ray(d.data.size_percent)
         return ray
       }
     })
     .attr('height', function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         ray = circle_ray(d.data.size_percent)
         return ray //Math.max(10, ray)
       }
     })
     .style("fill", function(d) {
-      if (d.data.node_id != 0) {
+      if (d.parent != null) {
         if(!d.data.gene_events) {
           return "white"
         }
